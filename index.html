@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>গুগল শিট তথ্য ব্যবস্থাপনা সফটওয়্যার</title>
+  <title>তথ্য ব্যবস্থাপনা সফটওয়্যার</title>
   <style>
     * {
       box-sizing: border-box;
@@ -174,9 +174,24 @@
 
   <script>
     const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwABAfQbmSa6pKYt7qcOQ524q-k2j94IhBu11m2DzM1Ycs8om4Qys6-jF9cmzfQgsb0zw/exec";
+    let globalDataList = [];
 
-    let localCacheList = JSON.parse(localStorage.getItem('sheetCache')) || [];
-    displayResults(localCacheList);
+    window.onload = function() {
+      fetchAllData();
+    };
+
+    async function fetchAllData() {
+      try {
+        let response = await fetch(WEB_APP_URL);
+        let resultData = await response.json();
+        if (resultData.status === "success") {
+          globalDataList = resultData.data;
+          displayResults(globalDataList);
+        }
+      } catch (error) {
+        console.error("তথ্য লোড করতে সমস্যা:", error);
+      }
+    }
 
     async function saveData() {
       let editIndex = document.getElementById('editIndex').value;
@@ -198,38 +213,22 @@
         postCount: postCount || "প্রযোজ্য নয়",
         linkUrl: linkUrl || "",
         smsInfo: smsInfo || "প্রযোজ্য নয়",
-        examStatus: examStatus
+        examStatus: examStatus,
+        rowIndex: editIndex === "-1" ? "" : globalDataList[editIndex].rowIndex
       };
 
       try {
-        alert("ডেটা প্রসেস করা হচ্ছে, অনুগ্রহ করে অপেক্ষা করুন...");
+        alert("সেভ করা হচ্ছে, অনুগ্রহ করে অপেক্ষা করুন...");
         
+        // ফর্ম ডেটা URL-encoded আকারে পাঠানো হচ্ছে যাতে CORS সমস্যা না হয়
         await fetch(WEB_APP_URL, {
           method: "POST",
-          mode: 'no-cors',
-          headers: {
-            "Content-Type": "application/json"
-          },
           body: JSON.stringify(formData)
         });
 
-        if (editIndex === "-1") {
-          // নতুন ডেটা যোগ হলে
-          localCacheList.push(formData);
-          alert("সফলভাবে গুগল শিটে সেভ হয়েছে!");
-        } else {
-          // এডিট করা ডেটা আপডেট হলে
-          localCacheList[editIndex] = formData;
-          alert("তথ্য সফলভাবে আপডেট করা হয়েছে!");
-          document.getElementById('editIndex').value = "-1";
-          document.getElementById('formTitle').innerText = "নতুন তথ্য যোগ করুন";
-          document.getElementById('saveBtn').innerText = "গুগল শিটে সেভ করুন";
-        }
-
-        localStorage.setItem('sheetCache', JSON.stringify(localCacheList));
-        displayResults(localCacheList);
+        alert("সফলভাবে সম্পন্ন হয়েছে!");
         resetForm();
-
+        setTimeout(fetchAllData, 2000); 
       } catch (error) {
         console.error("ত্রুটি:", error);
         alert("সার্ভারে সংযোগ স্থাপন করা যায়নি।");
@@ -237,7 +236,7 @@
     }
 
     function editData(index) {
-      let item = localCacheList[index];
+      let item = globalDataList[index];
       document.getElementById('officeInput').value = item.officeName;
       document.getElementById('userIdInput').value = item.userId;
       document.getElementById('postInput').value = item.postCount;
@@ -252,12 +251,23 @@
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    function deleteData(index) {
+    async function deleteData(index) {
       if (confirm("আপনি কি নিশ্চিতভাবে এই তথ্যটি মুছে ফেলতে চান?")) {
-        localCacheList.splice(index, 1);
-        localStorage.setItem('sheetCache', JSON.stringify(localCacheList));
-        displayResults(localCacheList);
-        alert("তথ্যটি সফলভাবে মুছে ফেলা হয়েছে!");
+        let formData = {
+          action: "delete",
+          rowIndex: globalDataList[index].rowIndex
+        };
+        try {
+          alert("মুছে ফেলা হচ্ছে, অপেক্ষা করুন...");
+          await fetch(WEB_APP_URL, {
+            method: "POST",
+            body: JSON.stringify(formData)
+          });
+          alert("তথ্যটি সফলভাবে মুছে ফেলা হয়েছে!");
+          setTimeout(fetchAllData, 2000);
+        } catch (error) {
+          console.error("মুছে ফেলতে ত্রুটি:", error);
+        }
       }
     }
 
@@ -275,23 +285,21 @@
 
     function searchData() {
       let input = document.getElementById('searchInput').value.trim().toLowerCase();
-
       if (input === "") {
-        displayResults(localCacheList);
+        displayResults(globalDataList);
         return;
       }
-
-      let filteredResults = localCacheList.map((item, originalIndex) => ({ ...item, originalIndex }))
-        .filter(item => item.officeName.toLowerCase().startsWith(input));
-
-      displaySearchResults(filteredResults);
+      let filteredResults = globalDataList.filter(item => 
+        item.officeName.toLowerCase().includes(input)
+      );
+      displayResults(filteredResults);
     }
 
     function displayResults(results) {
       let container = document.getElementById('resultContainer');
       container.innerHTML = "";
 
-      if (results.length > 0) {
+      if (results && results.length > 0) {
         results.forEach((item, index) => {
           let linkHtml = item.linkUrl ? `<p><strong>Link:</strong> <a href="${item.linkUrl}" target="_blank">${item.linkUrl}</a></p>` : "";
           let statusClass = "status-ongoing";
@@ -309,37 +317,6 @@
               <div class="action-buttons">
                 <button class="btn-edit" onclick="editData(${index})">এডিট করুন</button>
                 <button class="btn-delete" onclick="deleteData(${index})">ডিলিট করুন</button>
-              </div>
-            </div>
-          `;
-        });
-      } else {
-        container.innerHTML = `<div class="no-result">কোনো তথ্য পাওয়া যায়নি!</div>`;
-      }
-    }
-
-    function displaySearchResults(results) {
-      let container = document.getElementById('resultContainer');
-      container.innerHTML = "";
-
-      if (results.length > 0) {
-        results.forEach(item => {
-          let linkHtml = item.linkUrl ? `<p><strong>Link:</strong> <a href="${item.linkUrl}" target="_blank">${item.linkUrl}</a></p>` : "";
-          let statusClass = "status-ongoing";
-          if (item.examStatus === "পরীক্ষা হয়নি") statusClass = "status-not";
-          else if (item.examStatus === "পরীক্ষা স্থগিত") statusClass = "status-postponed";
-
-          container.innerHTML += `
-            <div class="card">
-              <h3>${item.officeName}</h3>
-              <p><strong>User ID:</strong> ${item.userId}</p>
-              <p><strong>পদ সংখ্যা:</strong> ${item.postCount}</p>
-              ${linkHtml}
-              <p><strong>SMS Information:</strong> ${item.smsInfo}</p>
-              <p><strong>পরীক্ষার অবস্থা:</strong> <span class="status-badge ${statusClass}">${item.examStatus}</span></p>
-              <div class="action-buttons">
-                <button class="btn-edit" onclick="editData(${item.originalIndex})">এডিট করুন</button>
-                <button class="btn-delete" onclick="deleteData(${item.originalIndex})">ডিলিট করুন</button>
               </div>
             </div>
           `;

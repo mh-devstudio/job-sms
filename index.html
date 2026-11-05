@@ -1,4 +1,167 @@
-async function sendDataToGoogleSheet() {
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>গুগল শিট তথ্য ব্যবস্থাপনা সফটওয়্যার</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    body {
+      background-color: #f4f7f6;
+      display: flex;
+      justify-content: center;
+      padding: 20px;
+    }
+    .app-container {
+      width: 100%;
+      max-width: 500px;
+      background: #ffffff;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    }
+    h2, h3 {
+      text-align: center;
+      color: #333;
+      margin-bottom: 15px;
+    }
+    .section {
+      margin-bottom: 25px;
+      padding-bottom: 15px;
+      border-bottom: 1px solid #eee;
+    }
+    input, select, textarea, button {
+      width: 100%;
+      padding: 10px 15px;
+      font-size: 15px;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      outline: none;
+      margin-bottom: 10px;
+      transition: border-color 0.3s;
+      background-color: #fff;
+    }
+    textarea {
+      resize: vertical;
+      height: 80px;
+    }
+    input:focus, select:focus, textarea:focus {
+      border-color: #4CAF50;
+    }
+    .file-upload-label {
+      display: block;
+      font-size: 14px;
+      color: #555;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+    button {
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    .result-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .card {
+      background: #fdfdfd;
+      border-left: 5px solid #4CAF50;
+      padding: 15px;
+      border-radius: 6px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+      position: relative;
+    }
+    .card h3 {
+      text-align: left;
+      color: #2c3e50;
+      margin-bottom: 5px;
+    }
+    .card p {
+      color: #555;
+      font-size: 14px;
+      margin: 3px 0;
+    }
+    .card a {
+      color: #1a73e8;
+      text-decoration: none;
+    }
+    .card a:hover {
+      text-decoration: underline;
+    }
+    .status-badge {
+      display: inline-block;
+      padding: 3px 8px;
+      font-size: 12px;
+      font-weight: bold;
+      border-radius: 4px;
+      margin-top: 5px;
+    }
+    .status-ongoing { background-color: #e6f4ea; color: #137333; }
+    .status-not { background-color: #fce8e6; color: #c5221f; }
+    .status-postponed { background-color: #fef7e0; color: #b06000; }
+    .no-result {
+      text-align: center;
+      color: #888;
+      font-size: 15px;
+      padding: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-container">
+    <h2>তথ্য ব্যবস্থাপনা সফটওয়্যার</h2>
+    
+    <div class="section">
+      <h3>নতুন তথ্য যোগ করুন</h3>
+      <input type="text" id="officeInput" placeholder="অফিস নাম...">
+      <input type="text" id="userIdInput" placeholder="User ID...">
+      <input type="text" id="postInput" placeholder="পদ সংখ্যা...">
+      <input type="text" id="linkInput" placeholder="Link (URL)...">
+      <textarea id="smsInput" placeholder="SMS Information লিখুন..."></textarea>
+      
+      <label class="file-upload-label">পরীক্ষার অবস্থা নির্বাচন করুন:</label>
+      <select id="examStatusInput">
+        <option value="পরীক্ষা হচ্ছে">পরীক্ষা হচ্ছে</option>
+        <option value="পরীক্ষা হয়নি">পরীক্ষা হয়নি</option>
+        <option value="পরীক্ষা স্থগিত">পরীক্ষা স্থগিত</option>
+      </select>
+      
+      <button onclick="sendDataToGoogleSheet()">গুগল শিটে সেভ করুন</button>
+    </div>
+
+    <div class="section">
+      <h3>তথ্য অনুসন্ধান</h3>
+      <input 
+        type="text" 
+        id="searchInput" 
+        placeholder="অফিস নাম দিয়ে সার্চ করুন..." 
+        onkeyup="searchData()"
+      >
+    </div>
+
+    <div id="resultContainer" class="result-list"></div>
+  </div>
+
+  <script>
+    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwABAfQbmSa6pKYt7qcOQ524q-k2j94IhBu11m2DzM1Ycs8om4Qys6-jF9cmzfQgsb0zw/exec";
+
+    let localCacheList = JSON.parse(localStorage.getItem('sheetCache')) || [];
+    displayResults(localCacheList);
+
+    async function sendDataToGoogleSheet() {
       let officeName = document.getElementById('officeInput').value.trim();
       let userId = document.getElementById('userIdInput').value.trim();
       let postCount = document.getElementById('postInput').value.trim();
@@ -25,14 +188,13 @@ async function sendDataToGoogleSheet() {
         
         await fetch(WEB_APP_URL, {
           method: "POST",
-          mode: 'no-cors', // CORS ত্রুটি এড়ানোর জন্য এটি জরুরি
+          mode: 'no-cors',
           headers: {
             "Content-Type": "application/json"
           },
           body: JSON.stringify(formData)
         });
 
-        // যেহেতু no-cors মোডে সরাসরি রিমোট রেসপন্স পড়া যায় না, তাই ধরে নেওয়া হচ্ছে সফল হয়েছে
         alert("সফলভাবে গুগল শিটে সেভ হয়েছে!");
         localCacheList.push(formData);
         localStorage.setItem('sheetCache', JSON.stringify(localCacheList));
@@ -44,3 +206,58 @@ async function sendDataToGoogleSheet() {
         alert("সার্ভারে সংযোগ স্থাপন করা যায়নি। ইন্টারনেট কানেকশন চেক করুন।");
       }
     }
+
+    function resetForm() {
+      document.getElementById('officeInput').value = "";
+      document.getElementById('userIdInput').value = "";
+      document.getElementById('postInput').value = "";
+      document.getElementById('linkInput').value = "";
+      document.getElementById('smsInput').value = "";
+      document.getElementById('examStatusInput').value = "পরীক্ষা হচ্ছে";
+    }
+
+    function searchData() {
+      let_input = document.getElementById('searchInput').value.trim().toLowerCase();
+
+      if (input === "") {
+        displayResults(localCacheList);
+        return;
+      }
+
+      let filteredResults = localCacheList.filter(item => 
+        item.officeName.toLowerCase().startsWith(input)
+      );
+
+      displayResults(filteredResults);
+    }
+
+    function displayResults(results) {
+      let container = document.getElementById('resultContainer');
+      container.innerHTML = "";
+
+      if (results.length > 0) {
+        results.forEach(item => {
+          let linkHtml = item.linkUrl ? `<p><strong>Link:</strong> <a href="${item.linkUrl}" target="_blank">${item.linkUrl}</a></p>` : "";
+          let statusClass = "status-ongoing";
+          if (item.examStatus === "পরীক্ষা হয়নি") statusClass = "status-not";
+          else if (item.examStatus === "পরীক্ষা স্থগিত") statusClass = "status-postponed";
+
+          container.innerHTML += `
+            <div class="card">
+              <h3>${item.officeName}</h3>
+              <p><strong>User ID:</strong> ${item.userId}</p>
+              <p><strong>পদ সংখ্যা:</strong> ${item.postCount}</p>
+              ${linkHtml}
+              <p><strong>SMS Information:</strong> ${item.smsInfo}</p>
+              <p><strong>পরীক্ষার অবস্থা:</strong> <span class="status-badge ${statusClass}">${item.examStatus}</span></p>
+            </div>
+          `;
+        });
+      } else {
+        container.innerHTML = `<div class="no-result">কোনো তথ্য পাওয়া যায়নি!</div>`;
+      }
+    }
+  </script>
+
+</body>
+</html>

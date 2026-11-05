@@ -82,6 +82,7 @@
       padding: 15px;
       border-radius: 6px;
       box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+      position: relative;
     }
     .card h3 {
       text-align: left;
@@ -108,6 +109,29 @@
     .status-ongoing { background-color: #e6f4ea; color: #137333; }
     .status-not { background-color: #fce8e6; color: #c5221f; }
     .status-postponed { background-color: #fef7e0; color: #b06000; }
+    
+    .action-buttons {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .btn-edit {
+      background-color: #f39c12;
+      padding: 6px 12px;
+      font-size: 13px;
+    }
+    .btn-edit:hover {
+      background-color: #d68910;
+    }
+    .btn-delete {
+      background-color: #e74c3c;
+      padding: 6px 12px;
+      font-size: 13px;
+    }
+    .btn-delete:hover {
+      background-color: #c0392b;
+    }
+
     .no-result {
       text-align: center;
       color: #888;
@@ -122,7 +146,8 @@
     <h2>তথ্য ব্যবস্থাপনা সফটওয়্যার</h2>
     
     <div class="section">
-      <h3>নতুন তথ্য যোগ করুন</h3>
+      <h3 id="formTitle">নতুন তথ্য যোগ করুন</h3>
+      <input type="hidden" id="editIndex" value="-1">
       <input type="text" id="officeInput" placeholder="অফিস নাম...">
       <input type="text" id="userIdInput" placeholder="User ID...">
       <input type="text" id="postInput" placeholder="পদ সংখ্যা...">
@@ -136,7 +161,7 @@
         <option value="পরীক্ষা স্থগিত">পরীক্ষা স্থগিত</option>
       </select>
       
-      <button onclick="sendDataToGoogleSheet()">গুগল শিটে সেভ করুন</button>
+      <button id="saveBtn" onclick="saveData()">গুগল শিটে সেভ করুন</button>
     </div>
 
     <div class="section">
@@ -153,7 +178,8 @@
     let localCacheList = JSON.parse(localStorage.getItem('sheetCache')) || [];
     displayResults(localCacheList);
 
-    async function sendDataToGoogleSheet() {
+    async function saveData() {
+      let editIndex = document.getElementById('editIndex').value;
       let officeName = document.getElementById('officeInput').value.trim();
       let userId = document.getElementById('userIdInput').value.trim();
       let postCount = document.getElementById('postInput').value.trim();
@@ -176,7 +202,7 @@
       };
 
       try {
-        alert("ডেটা পাঠানো হচ্ছে, অনুগ্রহ করে অপেক্ষা করুন...");
+        alert("ডেটা প্রসেস করা হচ্ছে, অনুগ্রহ করে অপেক্ষা করুন...");
         
         await fetch(WEB_APP_URL, {
           method: "POST",
@@ -187,8 +213,19 @@
           body: JSON.stringify(formData)
         });
 
-        alert("সফলভাবে গুগল শিটে সেভ হয়েছে!");
-        localCacheList.push(formData);
+        if (editIndex === "-1") {
+          // নতুন ডেটা যোগ হলে
+          localCacheList.push(formData);
+          alert("সফলভাবে গুগল শিটে সেভ হয়েছে!");
+        } else {
+          // এডিট করা ডেটা আপডেট হলে
+          localCacheList[editIndex] = formData;
+          alert("তথ্য সফলভাবে আপডেট করা হয়েছে!");
+          document.getElementById('editIndex').value = "-1";
+          document.getElementById('formTitle').innerText = "নতুন তথ্য যোগ করুন";
+          document.getElementById('saveBtn').innerText = "গুগল শিটে সেভ করুন";
+        }
+
         localStorage.setItem('sheetCache', JSON.stringify(localCacheList));
         displayResults(localCacheList);
         resetForm();
@@ -199,6 +236,31 @@
       }
     }
 
+    function editData(index) {
+      let item = localCacheList[index];
+      document.getElementById('officeInput').value = item.officeName;
+      document.getElementById('userIdInput').value = item.userId;
+      document.getElementById('postInput').value = item.postCount;
+      document.getElementById('linkInput').value = item.linkUrl;
+      document.getElementById('smsInput').value = item.smsInfo;
+      document.getElementById('examStatusInput').value = item.examStatus;
+      
+      document.getElementById('editIndex').value = index;
+      document.getElementById('formTitle').innerText = "তথ্য এডিট করুন";
+      document.getElementById('saveBtn').innerText = "আপডেট করুন";
+      
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function deleteData(index) {
+      if (confirm("আপনি কি নিশ্চিতভাবে এই তথ্যটি মুছে ফেলতে চান?")) {
+        localCacheList.splice(index, 1);
+        localStorage.setItem('sheetCache', JSON.stringify(localCacheList));
+        displayResults(localCacheList);
+        alert("তথ্যটি সফলভাবে মুছে ফেলা হয়েছে!");
+      }
+    }
+
     function resetForm() {
       document.getElementById('officeInput').value = "";
       document.getElementById('userIdInput').value = "";
@@ -206,6 +268,9 @@
       document.getElementById('linkInput').value = "";
       document.getElementById('smsInput').value = "";
       document.getElementById('examStatusInput').value = "পরীক্ষা হচ্ছে";
+      document.getElementById('editIndex').value = "-1";
+      document.getElementById('formTitle').innerText = "নতুন তথ্য যোগ করুন";
+      document.getElementById('saveBtn').innerText = "গুগল শিটে সেভ করুন";
     }
 
     function searchData() {
@@ -216,14 +281,44 @@
         return;
       }
 
-      let filteredResults = localCacheList.filter(item => 
-        item.officeName.toLowerCase().startsWith(input)
-      );
+      let filteredResults = localCacheList.map((item, originalIndex) => ({ ...item, originalIndex }))
+        .filter(item => item.officeName.toLowerCase().startsWith(input));
 
-      displayResults(filteredResults);
+      displaySearchResults(filteredResults);
     }
 
     function displayResults(results) {
+      let container = document.getElementById('resultContainer');
+      container.innerHTML = "";
+
+      if (results.length > 0) {
+        results.forEach((item, index) => {
+          let linkHtml = item.linkUrl ? `<p><strong>Link:</strong> <a href="${item.linkUrl}" target="_blank">${item.linkUrl}</a></p>` : "";
+          let statusClass = "status-ongoing";
+          if (item.examStatus === "পরীক্ষা হয়নি") statusClass = "status-not";
+          else if (item.examStatus === "পরীক্ষা স্থগিত") statusClass = "status-postponed";
+
+          container.innerHTML += `
+            <div class="card">
+              <h3>${item.officeName}</h3>
+              <p><strong>User ID:</strong> ${item.userId}</p>
+              <p><strong>পদ সংখ্যা:</strong> ${item.postCount}</p>
+              ${linkHtml}
+              <p><strong>SMS Information:</strong> ${item.smsInfo}</p>
+              <p><strong>পরীক্ষার অবস্থা:</strong> <span class="status-badge ${statusClass}">${item.examStatus}</span></p>
+              <div class="action-buttons">
+                <button class="btn-edit" onclick="editData(${index})">এডিট করুন</button>
+                <button class="btn-delete" onclick="deleteData(${index})">ডিলিট করুন</button>
+              </div>
+            </div>
+          `;
+        });
+      } else {
+        container.innerHTML = `<div class="no-result">কোনো তথ্য পাওয়া যায়নি!</div>`;
+      }
+    }
+
+    function displaySearchResults(results) {
       let container = document.getElementById('resultContainer');
       container.innerHTML = "";
 
@@ -242,6 +337,10 @@
               ${linkHtml}
               <p><strong>SMS Information:</strong> ${item.smsInfo}</p>
               <p><strong>পরীক্ষার অবস্থা:</strong> <span class="status-badge ${statusClass}">${item.examStatus}</span></p>
+              <div class="action-buttons">
+                <button class="btn-edit" onclick="editData(${item.originalIndex})">এডিট করুন</button>
+                <button class="btn-delete" onclick="deleteData(${item.originalIndex})">ডিলিট করুন</button>
+              </div>
             </div>
           `;
         });

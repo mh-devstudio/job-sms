@@ -43,7 +43,6 @@
       border-radius: 8px;
       outline: none;
       margin-bottom: 10px;
-      transition: border-color 0.3s;
       background-color: #fff;
     }
     textarea {
@@ -66,6 +65,8 @@
       border: none;
       cursor: pointer;
       font-weight: bold;
+      padding: 12px;
+      border-radius: 8px;
     }
     button:hover {
       background-color: #45a049;
@@ -81,7 +82,6 @@
       padding: 15px;
       border-radius: 6px;
       box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-      position: relative;
     }
     .card h3 {
       text-align: left;
@@ -96,9 +96,6 @@
     .card a {
       color: #1a73e8;
       text-decoration: none;
-    }
-    .card a:hover {
-      text-decoration: underline;
     }
     .status-badge {
       display: inline-block;
@@ -144,12 +141,7 @@
 
     <div class="section">
       <h3>তথ্য অনুসন্ধান</h3>
-      <input 
-        type="text" 
-        id="searchInput" 
-        placeholder="অফিস নাম দিয়ে সার্চ করুন..." 
-        onkeyup="searchData()"
-      >
+      <input type="text" id="searchInput" placeholder="অফিস নাম দিয়ে সার্চ করুন..." onkeyup="searchData()">
     </div>
 
     <div id="resultContainer" class="result-list"></div>
@@ -203,7 +195,7 @@
 
       } catch (error) {
         console.error("ত্রুটি:", error);
-        alert("সার্ভারে সংযোগ স্থাপন করা যায়নি। ইন্টারনেট কানেকশন চেক করুন।");
+        alert("সার্ভারে সংযোগ স্থাপন করা যায়নি।");
       }
     }
 
